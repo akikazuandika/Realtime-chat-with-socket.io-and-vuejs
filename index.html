@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+</head>
+
+<body>
+    <div id="app">
+        <div class="conteiner">
+            <div class="col-md-6 offset-3">
+                <div v-if="!ready" style="margin-top: 100px;" >
+                    <form @submit.prevent="login" >
+                        <div class="form-group row" style="margin-bottom: 0px">
+                            <h4>Enter your name</h4>
+                            <input type="text" class="form-control col-9" style="margin-right: 10px;" v-model="name" placeholder="Enter your name..">
+                            <button class="btn btn-info btn-sm col-2" >Enter</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="card bg-info" v-else >
+                    <div class="card-header">
+                        <h4 class="text-white" >Chat App <small> ({{ this.name }}) </small> </h4>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group">
+                            <small class="text-white" v-if="typing" >User is typing..</small>
+                            <p class="text-white" v-for="info in infos">
+                                {{ info.name + ' ' + info.message }}
+                            </p>
+                            <li class="list-group-item" v-for="message in messages">
+                                <span style="font-size: 20px;" :class="{'float-right':message.type === 0}" >{{ message.message.message }}
+                                    <span class="badge badge-primary" style="font-size: 12px;">{{ message.message.name }}</span>
+                                </span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-footer">
+                        <form @submit.prevent="send" >
+                            <div class="form-group" style="margin-bottom: 0px;">
+                                <input type="text" class="form-control" v-model="message" placeholder="Type your message..">
+                                <small class="form-text text-white" for="message">Enter to send.</small>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+
+    <script>
+        var socket = io();
+
+        let app = new Vue({
+            el: "#app",
+            data : {
+                message : '',
+                messages : [],
+                typing : false,
+                name : '',
+                ready : false,
+                infos : []
+            },
+            methods : {
+                send(){
+                    this.messages.push({ message : { message : this.message, name : 'me' }, type : 0 })
+                    socket.emit('chat-message', {message : this.message, name : this.name} )
+                    this.message = null
+                },
+                login(){
+                    if (this.name.length > 0) {
+                        this.ready = true
+                        socket.emit('joined', this.name)
+                    }
+                }
+            },
+            watch:{
+                message(value){
+                    value ? socket.emit('typing') : socket.emit('stopTyping')
+                }
+            },
+            created() {
+                window.onbeforeunload = () => {
+                    socket.emit('leaved', this.name)
+                }
+
+                socket.on('chat-message', (data) => {
+                    this.messages.push({message : data.message, name : data.name})
+                })
+
+                socket.on('typing', (data) => {
+                    this.typing = true
+                })
+
+                socket.on('stopTyping', (data) => {
+                    this.typing = false
+                })
+
+                socket.on('joined', (data) => {
+                    this.infos.push({ name : data, message : "Joined" })
+
+                    setTimeout(() => {
+                        this.infos = []
+                    }, 3000);
+                })
+
+                socket.on('leaved', (data) => {
+                    this.infos.push({ name : data, message : "Leaved" })
+
+                    setTimeout(() => {
+                        this.infos = []
+                    }, 3000);
+                })
+            }
+        })
+    </script>
+</body>
+
+</html>
